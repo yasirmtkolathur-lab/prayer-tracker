@@ -3,89 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Prayer Tracker</title>
+    <title>Teacher Admin Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; }
-        .container { max-width: 400px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ecf0f1; padding: 20px; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h2 { text-align: center; color: #2c3e50; }
-        label { font-weight: bold; margin-top: 10px; display: block; color: #34495e; }
-        input[type="text"] { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .checkbox-item { display: flex; align-items: center; gap: 10px; background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 5px; }
-        button { width: 100%; padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
-        button:hover { background-color: #2ecc71; }
-        .message { text-align: center; margin-top: 15px; font-weight: bold; color: #27ae60; display: none; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 10px 20px; background-color: #8e44ad; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #732d91; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #ddd; }
+        th { background-color: #2c3e50; color: white; }
+        .summary { margin-top: 20px; padding: 15px; background-color: #d4efdf; color: #1e8449; border-radius: 5px; font-weight: bold; text-align: center; display: none; }
+        #loading { text-align: center; color: #7f8c8d; font-style: italic; display: none; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🕌 Daily Prayer Tracker</h2>
-    <form id="prayerForm">
-        <label for="name">Student Name</label>
-        <input type="text" id="name" name="name" required placeholder="Enter full name">
+    <h2>📊 Teacher Dashboard: Prayer Logs</h2>
+    <p>Search for a student to view their tracked prayers.</p>
+    
+    <div class="search-box">
+        <input type="text" id="searchName" placeholder="Enter exact student name...">
+        <button onclick="fetchStudentData()">Search</button>
+    </div>
 
-        <label for="studentClass">Grade / Class</label>
-        <input type="text" id="studentClass" name="studentClass" required placeholder="e.g. 10th Grade">
+    <div id="loading">Fetching database... please wait.</div>
+    
+    <div id="summaryCard" class="summary"></div>
 
-        <label>Prayers Completed Today</label>
-        <div class="checkbox-group">
-            <label class="checkbox-item"><input type="checkbox" id="fajr"> Fajr</label>
-            <label class="checkbox-item"><input type="checkbox" id="dhuhr"> Dhuhr</label>
-            <label class="checkbox-item"><input type="checkbox" id="asr"> Asr</label>
-            <label class="checkbox-item"><input type="checkbox" id="maghrib"> Maghrib</label>
-            <label class="checkbox-item"><input type="checkbox" id="isha"> Isha</label>
-        </div>
-
-        <button type="submit" id="submitBtn">Submit Log</button>
-        <div id="statusMessage" class="message">Submission saved successfully!</div>
-    </form>
+    <table id="resultsTable" style="display: none;">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Class</th>
+                <th>Fajr</th>
+                <th>Dhuhr</th>
+                <th>Asr</th>
+                <th>Maghrib</th>
+                <th>Isha</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            </tbody>
+    </table>
 </div>
 
 <script>
-    document.getElementById('prayerForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const btn = document.getElementById('submitBtn');
-        const statusMsg = document.getElementById('statusMessage');
-        btn.textContent = "Saving...";
-        btn.disabled = true;
+    // REPLACE THIS WITH YOUR GOOGLE SCRIPT WEB APP URL
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyd4Y8wc8wN6jK7XBFFpLUB4Tucf2lhMPWYFgQiQzAvTMp8LQ-cyPD8f9GgAe-lL8Q/exec';
 
-        // Gather data
-        const payload = {
-            name: document.getElementById('name').value,
-            studentClass: document.getElementById('studentClass').value,
-            fajr: document.getElementById('fajr').checked,
-            dhuhr: document.getElementById('dhuhr').checked,
-            asr: document.getElementById('asr').checked,
-            maghrib: document.getElementById('maghrib').checked,
-            isha: document.getElementById('isha').checked
-        };
+    function fetchStudentData() {
+        const searchName = document.getElementById('searchName').value.trim().toLowerCase();
+        if (!searchName) return alert("Please enter a name.");
 
-        // REPLACE THIS URL WITH YOUR DEPLOYED GOOGLE SCRIPT WEB APP URL
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZyCP2BXjZd0BpuJWwugvdEWRY0lPxk1GvVDGACSsviOV-kelbHTdpL11d7B_OMAmG/exec';
+        const table = document.getElementById('resultsTable');
+        const tbody = document.getElementById('tableBody');
+        const summary = document.getElementById('summaryCard');
+        const loading = document.getElementById('loading');
 
-        // Send to Google Apps Script
-        fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // Bypasses CORS issues when sending to Google Apps Script
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        }).then(() => {
-            document.getElementById('prayerForm').reset();
-            btn.textContent = "Submit Log";
-            btn.disabled = false;
-            statusMsg.style.display = "block";
-            setTimeout(() => { statusMsg.style.display = "none"; }, 4000);
-        }).catch(error => {
-            console.error('Error!', error.message);
-            btn.textContent = "Submit Log";
-            btn.disabled = false;
-            alert("There was an error submitting. Please try again.");
-        });
-    });
+        // Reset UI
+        table.style.display = 'none';
+        summary.style.display = 'none';
+        tbody.innerHTML = '';
+        loading.style.display = 'block';
+
+        // Fetch data from Google Sheet
+        fetch(GOOGLE_SCRIPT_URL)
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                // Filter data for the searched student
+                const studentLogs = data.filter(row => 
+                    row.Name && row.Name.toLowerCase() === searchName
+                );
+
+                if (studentLogs.length === 0) {
+                    summary.style.display = 'block';
+                    summary.style.backgroundColor = '#fadbd8';
+                    summary.style.color = '#c0392b';
+                    summary.innerText = "No logs found for this student.";
+                    return;
+                }
+
+                let totalPrayersEver = 0;
+
+                // Populate table
+                studentLogs.forEach(log => {
+                    totalPrayersEver += parseInt(log['Total Prayed'] || 0);
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${log['Log Date']}</td>
+                        <td>${log['Class']}</td>
+                        <td>${log['Fajr']}</td>
+                        <td>${log['Dhuhr']}</td>
+                        <td>${log['Asr']}</td>
+                        <td>${log['Maghrib']}</td>
+                        <td>${log['Isha']}</td>
+                        <td><strong>${log['Total Prayed']}</strong></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Show results
+                table.style.display = 'table';
+                summary.style.display = 'block';
+                summary.style.backgroundColor = '#d4efdf';
+                summary.style.color = '#1e8449';
+                summary.innerText = `Total lifetime prayers logged by this student: ${totalPrayersEver}`;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                loading.style.display = 'none';
+                alert("Failed to load data. Make sure your Web App permissions are set to 'Anyone'.");
+            });
+    }
 </script>
 
 </body>
